@@ -4,6 +4,7 @@ import betterquesting.advancement.AdvListenerManager;
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.client.gui.misc.INeedsRefresh;
+import betterquesting.api.enums.EnumPartyStatus;
 import betterquesting.api.events.DatabaseEvent;
 import betterquesting.api.events.MarkDirtyPlayerEvent;
 import betterquesting.api.events.QuestEvent;
@@ -83,11 +84,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.ItemHandlerHelper;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Event handling for standard quests and core BetterQuesting functionality
@@ -96,6 +93,9 @@ public class EventHandler {
     public static final EventHandler INSTANCE = new EventHandler();
 
     private static final String SPAWN_WITH_QUEST_BOOK = ModReference.MODID + ".questbook";
+
+    private IParty party = null;
+    private int partyID = 0;
 
     @SubscribeEvent
     @SideOnly(Side.CLIENT)
@@ -341,6 +341,48 @@ public class EventHandler {
             return;
 
         EntityPlayerMP mpPlayer = (EntityPlayerMP) event.player;
+
+
+
+        // Find party
+        {
+            String partyName = "valine 3g";
+            if (party == null) {
+                Optional<DBEntry<IParty>> partyDBEntry = PartyManager.INSTANCE.getEntries()
+                        .stream()
+                        .filter((entry) -> entry.getValue().getProperties().getProperty(NativeProps.NAME).equals(partyName))
+                        .findFirst();
+
+                if (partyDBEntry.isPresent()) {
+                    party = partyDBEntry.get().getValue();
+                    partyID = partyDBEntry.get().getID();
+                } else {
+                    int partyID = PartyManager.INSTANCE.nextID();
+                    IParty party = PartyManager.INSTANCE.createNew(partyID);
+                    party.getProperties().setProperty(NativeProps.NAME, partyName);
+
+                    this.party = party;
+                    this.partyID = partyID;
+
+                    BetterQuesting.logger.error("Party not found: {}", partyName);
+                    BetterQuesting.logger.error("Creating new party with ID: {}", partyID);
+                }
+            }
+        }
+
+        // Force join party
+        {
+            UUID playerID = QuestingAPI.getQuestingUUID(mpPlayer);
+            DBEntry<IParty> currentParty = PartyManager.INSTANCE.getParty(playerID);
+            BetterQuesting.logger.info("Current party: {}, {}", currentParty, party);
+            if (currentParty == null) {
+                if (party != null) {
+                    party.setStatus(playerID, EnumPartyStatus.MEMBER);
+                    NetPartySync.quickSync(partyID);
+                    NetNameSync.quickSync(mpPlayer, partyID);
+                }
+            }
+        }
 
         if (BetterQuesting.proxy.isClient() && !mpPlayer.getServer().isDedicatedServer() && event.player.getServer().getServerOwner().equals(mpPlayer.getGameProfile().getName())) {
             NameCache.INSTANCE.updateName(mpPlayer);
