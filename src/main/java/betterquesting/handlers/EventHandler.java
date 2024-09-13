@@ -374,7 +374,6 @@ public class EventHandler {
         {
             UUID playerID = QuestingAPI.getQuestingUUID(mpPlayer);
             DBEntry<IParty> currentParty = PartyManager.INSTANCE.getParty(playerID);
-            BetterQuesting.logger.info("Current party: {}, {}", currentParty, party);
             if (currentParty == null) {
                 if (party != null) {
                     party.setStatus(playerID, EnumPartyStatus.MEMBER);
