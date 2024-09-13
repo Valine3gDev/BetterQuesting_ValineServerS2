@@ -438,24 +438,29 @@ public class EventHandler {
     @SubscribeEvent
     public void onServerTick(ServerTickEvent event) {
         if (event.phase == Phase.START) {
-            if (FMLCommonHandler.instance().getMinecraftServerInstance().getTickCounter() % 60 == 0) {
+            int tick = FMLCommonHandler.instance().getMinecraftServerInstance().getTickCounter();
+            if (tick % 60 == 0) {
                 AdvListenerManager.INSTANCE.updateAll();
             }
-            processingUpdates = true;
-            for (EntityPlayer player : playerInventoryUpdates) {
-                if (player == null || player.inventory == null) {
-                    continue;
-                }
-                ParticipantInfo pInfo = new ParticipantInfo(player);
 
-                for (DBEntry<IQuest> entry : QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(pInfo.getSharedQuests())) {
-                    for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
-                        if (task.getValue() instanceof ITaskInventory) ((ITaskInventory)task.getValue()).onInventoryChange(entry, pInfo);
+            if (tick % (10 * 20) == 0) {
+                processingUpdates = true;
+                for (EntityPlayer player : playerInventoryUpdates) {
+                    if (player == null || player.inventory == null) {
+                        continue;
+                    }
+                    ParticipantInfo pInfo = new ParticipantInfo(player);
+
+                    for (DBEntry<IQuest> entry : QuestingAPI.getAPI(ApiReference.QUEST_DB).bulkLookup(pInfo.getSharedQuests())) {
+                        for (DBEntry<ITask> task : entry.getValue().getTasks().getEntries()) {
+                            if (task.getValue() instanceof ITaskInventory)
+                                ((ITaskInventory) task.getValue()).onInventoryChange(entry, pInfo);
+                        }
                     }
                 }
+                playerInventoryUpdates.clear();
+                processingUpdates = false;
             }
-            playerInventoryUpdates.clear();
-            processingUpdates = false;
         }
 
         if (event.phase != Phase.END) return;
@@ -487,7 +492,8 @@ public class EventHandler {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (event.getEntityPlayer() == null || event.getEntityPlayer().world.isRemote || event.getEntityPlayer() instanceof FakePlayer || event.isCanceled()) return;
+        if (event.getEntityPlayer() == null || event.getEntityPlayer().world.isRemote || event.getEntityPlayer() instanceof FakePlayer || event.isCanceled())
+            return;
 
         EntityPlayer player = event.getEntityPlayer();
         ParticipantInfo pInfo = new ParticipantInfo(player);
